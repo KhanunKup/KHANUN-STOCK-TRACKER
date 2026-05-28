@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockTracker | US Stock Portfolio Manager</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .nav-btn.active {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+
+        .view-card {
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .dark-card {
+            background-color: #1e293b;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col">
+    <nav class="bg-white border-b border-slate-200 py-3 sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-6 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-200">
+                    <i data-lucide="bar-chart-2" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 leading-tight">StockTracker</h1>
+                    <p class="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">US Stock Portfolio
+                        Manager</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button id="nav-dashboard"
+                    class="nav-btn active px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-all hover:bg-slate-50">
+                    <i data-lucide="layout-grid" class="w-4 h-4"></i> Dashboard
+                </button>
+                <button id="nav-add"
+                    class="nav-btn px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium text-slate-600 transition-all hover:bg-slate-50">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Add Transaction
+                </button>
+                <button id="nav-history"
+                    class="nav-btn px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium text-slate-600 transition-all hover:bg-slate-50">
+                    <i data-lucide="history" class="w-4 h-4"></i> History
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow max-w-6xl mx-auto w-full px-6 py-10">
+
+        <div id="view-dashboard" class="view">
+            <div
+                class="dark-card text-white rounded-[2rem] p-10 min-h-[400px] flex flex-col relative overflow-hidden view-card">
+                <div class="flex items-center gap-3 mb-12">
+                    <i data-lucide="pie-chart" class="w-6 h-6 text-blue-400"></i>
+                    <h2 class="text-2xl font-semibold">Portfolio Overview</h2>
+                </div>
+
+                <div id="dashboard-content" class="flex-grow flex flex-col items-center justify-center">
+                    <div id="dashboard-empty" class="text-center">
+                        <div
+                            class="bg-slate-800/50 rounded-2xl w-20 h-20 flex items-center justify-center mx-auto mb-6">
+                            <i data-lucide="wallet" class="w-10 h-10 text-slate-500"></i>
+                        </div>
+                        <h3 class="text-xl font-medium text-slate-200 mb-2">Your portfolio is empty</h3>
+                        <p class="text-slate-400 text-sm">Add transactions to see your analytics</p>
+                    </div>
+
+                    <div id="dashboard-active" class="hidden w-full flex flex-col gap-10">
+                        <div id="dashboard-stats" class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        </div>
+
+                        <div
+                            class="bg-slate-800/30 rounded-3xl p-8 border border-slate-700/50 flex flex-col md:flex-row items-center gap-10">
+                            <div class="w-full md:w-1/2 max-w-[300px]">
+                                <canvas id="portfolio-chart"></canvas>
+                            </div>
+                            <div class="w-full md:w-1/2">
+                                <h3 class="text-xl font-bold mb-4">Market Value Allocation</h3>
+                                <p class="text-slate-400 text-sm mb-6">Visualization of your current market value per
+                                    stock symbol.</p>
+                                <div id="chart-legend" class="grid grid-cols-2 gap-4">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-800/30 rounded-3xl p-8 border border-slate-700/50">
+                            <div class="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 class="text-xl font-bold">Position Details</h3>
+                                    <p class="text-slate-400 text-sm">Average cost, current price, market value, and
+                                        unrealized gain/loss.</p>
+                                </div>
+                            </div>
+
+                            <div id="positions-table-container" class="overflow-x-auto">
+                            </div>
+                        </div>
+
+
+                        <div class="bg-slate-800/30 rounded-3xl p-8 border border-slate-700/50 flex flex-col gap-6">
+                            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div>
+                                    <h3 class="text-xl font-bold">Performance Comparison</h3>
+                                    <p class="text-slate-400 text-sm">Time-weighted return compared with S&P 500 and
+                                        Nasdaq 100.</p>
+
+                                </div>
+                                <div class="flex bg-slate-700/50 p-1 rounded-xl w-fit">
+                                    <button
+                                        class="time-toggle px-4 py-1.5 rounded-lg text-xs font-bold transition-all hover:bg-slate-600/50"
+                                        data-time="7D">7D</button>
+                                    <button
+                                        class="time-toggle px-4 py-1.5 rounded-lg text-xs font-bold transition-all bg-blue-600 text-white"
+                                        data-time="30D">1M</button>
+                                    <button
+                                        class="time-toggle px-4 py-1.5 rounded-lg text-xs font-bold transition-all hover:bg-slate-600/50"
+                                        data-time="90D">3M</button>
+                                </div>
+                            </div>
+                            <div class="w-full h-[320px]">
+                                <canvas id="performance-chart"></canvas>
+                            </div>
+                        </div>
+
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-add" class="view hidden">
+            <div class="bg-white rounded-[2rem] p-10 max-w-2xl mx-auto view-card border border-slate-100">
+                <div class="flex items-center gap-3 mb-8">
+                    <i data-lucide="plus" class="w-6 h-6 text-blue-600"></i>
+                    <h2 class="text-2xl font-bold text-slate-900">Add Transaction</h2>
+                </div>
+
+                <form id="form-transaction" class="space-y-6">
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-slate-600">Stock Symbol</label>
+                            <input type="text" name="symbol" required placeholder="AAPL"
+                                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-300">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-slate-600">Company Name (Optional)</label>
+                            <input type="text" name="company" placeholder="Apple Inc."
+                                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-300">
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-slate-600">Logo URL (Optional)</label>
+                        <input type="url" name="logo" placeholder="https://logo.clearbit.com/apple.com"
+                            class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-300">
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-slate-600">Transaction Type</label>
+                        <div class="flex gap-4">
+                            <label class="flex-1">
+                                <input type="radio" name="type" value="buy" checked class="hidden peer">
+                                <div
+                                    class="flex items-center justify-center gap-2 py-3 border border-slate-200 rounded-xl peer-checked:bg-emerald-500 peer-checked:border-emerald-500 peer-checked:text-white cursor-pointer transition-all bg-slate-50 text-slate-600 font-medium">
+                                    <i data-lucide="trending-up" class="w-4 h-4"></i> Buy
+                                </div>
+                            </label>
+                            <label class="flex-1">
+                                <input type="radio" name="type" value="sell" class="hidden peer">
+                                <div
+                                    class="flex items-center justify-center gap-2 py-3 border border-slate-200 rounded-xl peer-checked:bg-rose-500 peer-checked:border-rose-500 peer-checked:text-white cursor-pointer transition-all bg-slate-50 text-slate-600 font-medium">
+                                    <i data-lucide="trending-down" class="w-4 h-4"></i> Sell
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-slate-600">Number of Shares</label>
+                            <input type="number" name="shares" step="0.01" required placeholder="10"
+                                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-slate-600">Price per Share ($)</label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                                <input type="number" name="price" step="0.01" required placeholder="150.00"
+                                    class="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-slate-600">Transaction Date</label>
+                        <input type="date" name="date" required
+                            class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all">
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-slate-600">Notes (Optional)</label>
+                        <textarea name="notes" rows="3"
+                            class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-300"
+                            placeholder="Any notes about this transaction..."></textarea>
+                    </div>
+
+                    <button type="submit"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-200 active:scale-[0.98]">
+                        Save Transaction
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div id="view-history" class="view hidden">
+            <div class="bg-white rounded-[2rem] p-10 min-h-[400px] view-card border border-slate-100">
+                <div class="flex items-center gap-3 mb-10">
+                    <i data-lucide="calendar" class="w-6 h-6 text-blue-600"></i>
+                    <h2 class="text-2xl font-bold text-slate-900">Transaction History</h2>
+                </div>
+
+                <div id="history-content" class="flex flex-col items-center justify-center min-h-[250px]">
+                    <div id="history-empty" class="text-center">
+                        <h3 class="text-xl font-medium text-slate-400 mb-2">No transactions yet</h3>
+                        <p class="text-slate-300 text-sm">Add your first transaction above</p>
+                    </div>
+
+                    <div id="history-table-container" class="hidden w-full overflow-x-auto">
+                        <table class="w-full text-left border-separate border-spacing-y-4">
+                            <thead>
+                                <tr class="text-slate-400 text-sm font-medium">
+                                    <th class="px-6 py-2">Date</th>
+                                    <th class="px-6 py-2">Symbol</th>
+                                    <th class="px-6 py-2">Type</th>
+                                    <th class="px-6 py-2 text-right">Shares</th>
+                                    <th class="px-6 py-2 text-right">Price</th>
+                                    <th class="px-6 py-2 text-right">Total</th>
+                                    <th class="px-6 py-2 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-table-body">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="py-10 text-center">
+        <p class="text-slate-400 text-sm">Track your US stock investments with ease</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
