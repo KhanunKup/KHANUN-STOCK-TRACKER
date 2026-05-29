@@ -60,7 +60,9 @@ export function computePositions(transactions, currentPrices) {
                 currentPrice: 0,
                 marketValue: 0,
                 unrealizedGainLoss: 0,
-                unrealizedGainPercent: 0
+                unrealizedGainPercent: 0,
+                color: null,
+                assetType: tx.assetType || 'stock'
             };
         }
 
@@ -69,6 +71,16 @@ export function computePositions(transactions, currentPrices) {
         // Prefer first non-empty company name seen
         if (!position.company && tx.company) {
             position.company = tx.company;
+        }
+
+        // Always take the color from the most recent transaction (list is sorted asc)
+        if (tx.color) {
+            position.color = tx.color;
+        }
+
+        // Carry asset type forward (most recent wins)
+        if (tx.assetType) {
+            position.assetType = tx.assetType;
         }
 
         if (tx.type === 'buy') {
@@ -94,13 +106,23 @@ export function computePositions(transactions, currentPrices) {
         const position = positions[symbol];
         if (position.shares > 0) {
             position.avgPrice = position.costBasis / position.shares;
-            // Fall back to avg cost if live price is unavailable
-            position.currentPrice = currentPrices[symbol] ?? position.avgPrice;
-            position.marketValue = position.shares * position.currentPrice;
-            position.unrealizedGainLoss = position.marketValue - position.costBasis;
-            position.unrealizedGainPercent = position.costBasis > 0
-                ? (position.unrealizedGainLoss / position.costBasis) * 100
-                : 0;
+
+            if (position.assetType === 'cash' || symbol === 'CASH') {
+                // Cash is always worth $1 per unit — no market fluctuation
+                position.assetType = 'cash';
+                position.currentPrice = 1;
+                position.marketValue = position.shares * 1;
+                position.unrealizedGainLoss = 0;
+                position.unrealizedGainPercent = 0;
+            } else {
+                // Fall back to avg cost if live price is unavailable
+                position.currentPrice = currentPrices[symbol] ?? position.avgPrice;
+                position.marketValue = position.shares * position.currentPrice;
+                position.unrealizedGainLoss = position.marketValue - position.costBasis;
+                position.unrealizedGainPercent = position.costBasis > 0
+                    ? (position.unrealizedGainLoss / position.costBasis) * 100
+                    : 0;
+            }
         }
     });
 
@@ -125,7 +147,7 @@ export function computePositions(transactions, currentPrices) {
 export async function calculateHistoricalPerformance(transactions, days = 30) {
     const txSymbols = transactions
         .map(tx => normalizeSymbol(tx.symbol))
-        .filter(Boolean);
+        .filter(s => Boolean(s) && s !== 'CASH');
 
     const allSymbols = [...new Set([...txSymbols, '^GSPC', '^NDX'])];
 
@@ -210,6 +232,8 @@ export async function calculateHistoricalPerformance(transactions, days = 30) {
 
         Object.keys(prevHoldings).forEach(symbol => {
             const shares = prevHoldings[symbol];
+            // Skip CASH — it has no price history and shouldn't affect TWR
+            if (symbol === 'CASH') return;
             if (shares <= 0 || !historicalPrices[symbol]) return;
 
             const prevPrice = getPriceOnOrBefore(historicalPrices[symbol], prevDate);

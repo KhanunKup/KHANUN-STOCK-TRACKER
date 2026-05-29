@@ -5,6 +5,7 @@
  */
 
 import { normalizeSymbol } from './api.js';
+import { CHART_COLORS } from './charts.js';
 
 // ─── Cached DOM references ────────────────────────────────────────────────────
 
@@ -162,16 +163,38 @@ export function updatePositionsTable(activePositions) {
     }
 
     const rows = activePositions.map(pos => {
+        const isCash = pos.assetType === 'cash' || pos.symbol === 'CASH';
         const gainPositive = pos.unrealizedGainLoss >= 0;
-        const priceDisplay = Number.isFinite(pos.currentPrice)
-            ? `$${pos.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-            : '<span class="text-slate-500">—</span>';
+
+        let priceDisplay;
+        if (isCash) {
+            priceDisplay = '$1.00';
+        } else if (Number.isFinite(pos.currentPrice)) {
+            priceDisplay = `$${pos.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        } else {
+            priceDisplay = '<span class="text-slate-500">—</span>';
+        }
+
+        const gainDisplay = isCash
+            ? `<div class="font-bold text-slate-400">$0.00</div>
+               <div class="text-xs text-slate-500">0.00%</div>`
+            : `<div class="font-bold ${gainPositive ? 'text-emerald-400' : 'text-rose-400'}">
+                    ${gainPositive ? '+' : '-'}$${Math.abs(pos.unrealizedGainLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div class="text-xs ${gainPositive ? 'text-emerald-500/70' : 'text-rose-500/70'}">
+                    ${gainPositive ? '+' : '-'}${Math.abs(pos.unrealizedGainPercent).toFixed(2)}%
+                </div>`;
 
         return `
             <tr class="bg-slate-900/40 rounded-xl">
                 <td class="px-4 py-4 rounded-l-xl">
-                    <div class="font-bold text-white">${pos.symbol}</div>
-                    <div class="text-xs text-slate-500">${pos.company || ''}</div>
+                    <div class="flex items-center gap-2">
+                        ${isCash ? '<span class="text-lg">💵</span>' : ''}
+                        <div>
+                            <div class="font-bold text-white">${pos.symbol}</div>
+                            <div class="text-xs text-slate-500">${isCash ? 'Cash' : (pos.company || '')}</div>
+                        </div>
+                    </div>
                 </td>
                 <td class="px-4 py-4 text-right text-slate-300">
                     ${pos.shares.toLocaleString(undefined, { maximumFractionDigits: 4 })}
@@ -187,12 +210,7 @@ export function updatePositionsTable(activePositions) {
                     $${pos.marketValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
                 <td class="px-4 py-4 text-right rounded-r-xl">
-                    <div class="font-bold ${gainPositive ? 'text-emerald-400' : 'text-rose-400'}">
-                        ${gainPositive ? '+' : '-'}$${Math.abs(pos.unrealizedGainLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <div class="text-xs ${gainPositive ? 'text-emerald-500/70' : 'text-rose-500/70'}">
-                        ${gainPositive ? '+' : '-'}${Math.abs(pos.unrealizedGainPercent).toFixed(2)}%
-                    </div>
+                    ${gainDisplay}
                 </td>
             </tr>
         `;
@@ -220,20 +238,21 @@ export function updatePositionsTable(activePositions) {
 
 /**
  * Render the doughnut chart legend.
+ * Colors are derived from each position's `.color` field, with CHART_COLORS fallback.
  * @param {Object[]} activePositions
- * @param {string[]} colors  Color palette array
  */
-export function renderChartLegend(activePositions, colors) {
+export function renderChartLegend(activePositions) {
     if (!chartLegend) return;
     const totalValue = activePositions.reduce((sum, p) => sum + p.marketValue, 0);
     chartLegend.innerHTML = '';
 
     activePositions.forEach((pos, i) => {
+        const color = pos.color || CHART_COLORS[i % CHART_COLORS.length];
         const percent = totalValue > 0 ? (pos.marketValue / totalValue) * 100 : 0;
         const item = document.createElement('div');
         item.className = 'flex items-center gap-2';
         item.innerHTML = `
-            <div class="w-3 h-3 rounded-full shrink-0" style="background-color: ${colors[i % colors.length]}"></div>
+            <div class="w-3 h-3 rounded-full shrink-0" style="background-color: ${color}"></div>
             <div class="min-w-0">
                 <div class="text-sm text-slate-300 font-semibold leading-tight">${pos.symbol}</div>
                 <div class="text-[11px] text-slate-500 leading-tight">
@@ -343,6 +362,15 @@ export function loadTransactionIntoForm(form, tx, submitButton) {
     form.querySelector('input[name="price"]').value = tx.price || '';
     form.querySelector('input[name="date"]').value = tx.date || '';
     form.querySelector('textarea[name="notes"]').value = tx.notes || '';
+
+    // Restore asset type radio
+    const assetType = tx.assetType || 'stock';
+    const assetTypeInput = form.querySelector(`input[name="assetType"][value="${assetType}"]`);
+    if (assetTypeInput) assetTypeInput.checked = true;
+
+    // Restore color picker
+    const colorInput = form.querySelector('input[name="color"]');
+    if (colorInput) colorInput.value = tx.color || '#3b82f6';
 
     const typeInput = form.querySelector(`input[name="type"][value="${tx.type}"]`);
     if (typeInput) typeInput.checked = true;

@@ -237,6 +237,11 @@ async function fetchFromStooq(symbol, range) {
 export async function fetchStockData(symbol, range = '1mo') {
     const s = normalizeSymbol(symbol);
 
+    // 0. CASH — no external API needed; always priced at 1
+    if (s === 'CASH') {
+        return { symbol: 'CASH', currentPrice: 1, history: [], source: 'cash' };
+    }
+
     // 1. Cache hit
     const cached = getCachedMarketData(s, range);
     if (cached) return cached;
@@ -273,6 +278,7 @@ export async function fetchStockData(symbol, range = '1mo') {
  * @returns {Promise<number|null>}
  */
 export async function fetchCurrentPrice(symbol) {
+    if (normalizeSymbol(symbol) === 'CASH') return 1;
     const data = await fetchStockData(symbol, '5d');
     return data?.currentPrice ?? null;
 }

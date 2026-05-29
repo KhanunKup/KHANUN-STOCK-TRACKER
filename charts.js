@@ -46,6 +46,11 @@ export function updateDoughnutChart(canvasEl, activePositions) {
     const data = activePositions.map(p => p.marketValue);
     const totalValue = data.reduce((sum, v) => sum + v, 0);
 
+    // Build per-position color array: prefer position.color, fall back to palette
+    const positionColors = activePositions.map((p, i) =>
+        p.color || CHART_COLORS[i % CHART_COLORS.length]
+    );
+
     // Custom plugin: draw hovered segment info in the donut center
     const hoverCenterPlugin = {
         id: 'hoverCenterPlugin',
@@ -69,7 +74,7 @@ export function updateDoughnutChart(canvasEl, activePositions) {
             ctx.textBaseline = 'middle';
 
             // Symbol
-            ctx.fillStyle = CHART_COLORS[idx % CHART_COLORS.length];
+            ctx.fillStyle = positionColors[idx] || CHART_COLORS[idx % CHART_COLORS.length];
             ctx.font = '700 26px Outfit, sans-serif';
             ctx.fillText(position.symbol, cx, cy - 42);
 
@@ -102,7 +107,7 @@ export function updateDoughnutChart(canvasEl, activePositions) {
             labels,
             datasets: [{
                 data,
-                backgroundColor: activePositions.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
+                backgroundColor: positionColors,
                 borderColor: '#1e293b',
                 borderWidth: 3,
                 hoverBorderColor: '#ffffff',

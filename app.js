@@ -24,7 +24,7 @@ import {
     loadTransactionIntoForm,
     resetSubmitButton
 } from './ui.js';
-import { updateDoughnutChart, updateLineChart, CHART_COLORS } from './charts.js';
+import { updateDoughnutChart, updateLineChart } from './charts.js';
 
 // ─── Global State ─────────────────────────────────────────────────────────────
 
@@ -39,8 +39,14 @@ let editingTransactionId = null;
 const formTransaction = document.getElementById('form-transaction');
 const submitButton = formTransaction.querySelector('button[type="submit"]');
 const symbolInput = document.querySelector('input[name="symbol"]');
+const companyInput = document.querySelector('input[name="company"]');
+const logoInput = document.querySelector('input[name="logo"]');
 const priceInput = document.querySelector('input[name="price"]');
 const dateInput = document.querySelector('input[name="date"]');
+const colorInput = document.querySelector('input[name="color"]');
+const assetTypeRadios = document.querySelectorAll('input[name="assetType"]');
+const sharesLabel = document.getElementById('shares-label');
+const priceLabel = document.getElementById('price-label');
 const chartCanvas = document.getElementById('portfolio-chart');
 const performanceCanvas = document.getElementById('performance-chart');
 const timeToggles = document.querySelectorAll('.time-toggle');
@@ -131,7 +137,7 @@ async function renderDashboard() {
 
     // Update charts and tables
     updateDoughnutChart(chartCanvas, activePositions);
-    renderChartLegend(activePositions, CHART_COLORS);
+    renderChartLegend(activePositions);
     updatePositionsTable(activePositions);
     updateLineChart(performanceCanvas, perfData);
 }
@@ -170,16 +176,19 @@ formTransaction.addEventListener('submit', async e => {
     e.preventDefault();
 
     const formData = new FormData(formTransaction);
+    const assetType = formData.get('assetType') || 'stock';
     const transactionData = {
         id: editingTransactionId || Date.now().toString(),
-        symbol: normalizeSymbol(formData.get('symbol')),
+        symbol: assetType === 'cash' ? 'CASH' : normalizeSymbol(formData.get('symbol')),
         company: formData.get('company'),
         logo: formData.get('logo'),
         type: formData.get('type'),
         shares: parseFloat(formData.get('shares')),
         price: parseFloat(formData.get('price')),
         date: formData.get('date'),
-        notes: formData.get('notes')
+        notes: formData.get('notes'),
+        color: formData.get('color') || '#3b82f6',
+        assetType
     };
 
     if (
@@ -211,14 +220,52 @@ formTransaction.addEventListener('submit', async e => {
     formTransaction.reset();
     editingTransactionId = null;
     resetSubmitButton(submitButton);
+    setAssetTypeUI('stock');
     dateInput.value = new Date().toISOString().split('T')[0];
 });
 
-// ─── Symbol Blur — Auto-fill Price ───────────────────────────────────────────
+// ─── Asset Type Toggle ──────────────────────────────────────────────────
+
+function setAssetTypeUI(type) {
+    if (type === 'cash') {
+        symbolInput.value = 'CASH';
+        symbolInput.readOnly = true;
+        symbolInput.classList.add('bg-slate-100', 'text-slate-400');
+        companyInput.value = 'Cash';
+        companyInput.readOnly = true;
+        logoInput.value = '';
+        logoInput.readOnly = true;
+        if (sharesLabel) sharesLabel.textContent = 'Amount (Units)';
+        if (priceLabel) priceLabel.textContent = 'Price per Unit ($)';
+        priceInput.value = '1';
+    } else {
+        symbolInput.readOnly = false;
+        symbolInput.classList.remove('bg-slate-100', 'text-slate-400');
+        companyInput.readOnly = false;
+        logoInput.readOnly = false;
+        if (sharesLabel) sharesLabel.textContent = 'Number of Shares';
+        if (priceLabel) priceLabel.textContent = 'Price per Share ($)';
+        // Only clear if it was previously set to CASH
+        if (normalizeSymbol(symbolInput.value) === 'CASH') {
+            symbolInput.value = '';
+            companyInput.value = '';
+            priceInput.value = '';
+        }
+    }
+    lucide.createIcons();
+}
+
+assetTypeRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+        setAssetTypeUI(radio.value);
+    });
+});
+
+// ─── Symbol Blur — Auto-fill Price ───────────────────────────────────────
 
 symbolInput.addEventListener('blur', async () => {
     const symbol = normalizeSymbol(symbolInput.value);
-    if (!symbol) return;
+    if (!symbol || symbol === 'CASH') return;
 
     symbolInput.classList.add('animate-pulse');
     const price = await fetchCurrentPrice(symbol);
